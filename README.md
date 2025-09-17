@@ -1,10 +1,10 @@
-# n8n-nodes-zorus
+# n8n-nodes-unifi
 
-This is an n8n community node. It lets you use Zorus in your n8n workflows.
+This is an n8n community node. It lets you use Unifi in your n8n workflows.
 
-Zorus is a comprehensive endpoint security and management platform that provides advanced threat protection, policy management, and endpoint control capabilities for organizations.
+Unifi is a comprehensive endpoint security and management platform that provides advanced threat protection, policy management, and endpoint control capabilities for organizations.
 
-This node provides comprehensive operations for managing customers, deployment tokens, endpoints, groups, policies, and unblock requests through the Zorus API.
+This node provides comprehensive operations for managing customers, deployment tokens, endpoints, groups, policies, and unblock requests through the Unifi API.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
@@ -49,10 +49,10 @@ This node supports the following operations:
 
 ## Credentials
 
-To use this node, you'll need to set up API credentials with Zorus. Here's how:
+To use this node, you'll need to set up API credentials with Unifi. Here's how:
 
-1. **Access your Zorus portal**:
-   - Log in to your Zorus admin portal
+1. **Access your Unifi portal**:
+   - Log in to your Unifi admin portal
    - Navigate to **API Settings** or **Developer Tools**
 
 2. **Generate API Token**:
@@ -60,9 +60,9 @@ To use this node, you'll need to set up API credentials with Zorus. Here's how:
    - Copy the generated token
 
 3. **In n8n**:
-   - Create new credentials for "Zorus API"
-   - Enter the API Token from your Zorus portal
-   - The Base URL will default to: `https://developer.zorustech.com/api`
+   - Create new credentials for "Unifi API"
+   - Enter the API Token from your Unifi portal
+   - The Base URL will default to: `https://developer.unifitech.com/api`
    - Save the credentials
 
 ## Compatibility
@@ -72,7 +72,7 @@ This node is compatible with n8n version 1.82.0 and above.
 ## Resources
 
 * [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
-* [Zorus](https://zorustech.com/)
-* [Zorus API Documentation](https://developer.zorustech.com/api/docs/index.html)
+* [Unifi](https://unifitech.com/)
+* [Unifi API Documentation](https://developer.unifitech.com/api/docs/index.html)
 
 

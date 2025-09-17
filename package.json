@@ -1,7 +1,7 @@
 {
-  "name": "@n8layer/n8n-nodes-zorus",
+  "name": "@n8layer/n8n-nodes-unifi",
   "version": "0.1.2",
-  "description": "This is an n8n community node. It lets you use Zorus in your n8n workflows.",
+  "description": "This is an n8n community node. It lets you use Unifi in your n8n workflows.",
   "keywords": [
     "n8n-community-node-package"
   ],
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/n8layer/n8n-nodes-zorus.git"
+    "url": "https://github.com/n8layer/n8n-nodes-unifi.git"
   },
   "engines": {
     "node": ">=20.15"
@@ -36,10 +36,10 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/ZorusApi.credentials.js"
+      "dist/credentials/UnifiApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/Zorus/Zorus.node.js"
+      "dist/nodes/Unifi/Unifi.node.js"
     ]
   },
   "devDependencies": {
