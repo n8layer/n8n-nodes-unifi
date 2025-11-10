@@ -37,8 +37,7 @@ export class Unifi implements INodeType {
 			},
 		],
 		requestDefaults: {
-			baseURL: '',  // Will be set dynamically from credentials
-			url: '',
+			baseURL: '={{$credentials.serverUrl}}',
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
@@ -51,10 +50,6 @@ export class Unifi implements INodeType {
 				type: 'options',
 				noDataExpression: true,
 				options: [
-					{
-						name: 'Site',
-						value: 'site',
-					},
 					{
 						name: 'Deployment Token',
 						value: 'deploymentToken',
@@ -70,6 +65,10 @@ export class Unifi implements INodeType {
 					{
 						name: 'Policy',
 						value: 'policy',
+					},
+					{
+						name: 'Site',
+						value: 'site',
 					},
 					{
 						name: 'Unblock Request',
@@ -107,48 +106,53 @@ export class Unifi implements INodeType {
 		const serverUrl = (credentials.serverUrl as string) || 'https://unifi.elasticit.com:8443/v2/api';
 		const baseServerUrl = serverUrl.replace('/v2/api', ''); // Extract base URL for login
 
+		// Authenticate once per execution (not per item)
+		let sessionCookie = '';
+		try {
+			const loginOptions: IHttpRequestOptions = {
+				url: `${baseServerUrl}/api/login`,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+				},
+				body: {
+					username: credentials.username,
+					password: credentials.password,
+				},
+				returnFullResponse: true,
+			};
+
+			const loginResponse = await this.helpers.httpRequest(loginOptions);
+
+			// Extract session cookie from login response
+			if (loginResponse.headers && loginResponse.headers['set-cookie']) {
+				const cookies = loginResponse.headers['set-cookie'];
+				sessionCookie = Array.isArray(cookies)
+					? cookies.map(cookie => cookie.split(';')[0]).join('; ')
+					: cookies.split(';')[0];
+			}
+
+			if (!sessionCookie) {
+				throw new NodeOperationError(
+					this.getNode(),
+					'Authentication failed - no session cookie received'
+				);
+			}
+		} catch (error) {
+			throw new NodeOperationError(
+				this.getNode(),
+				'Authentication failed. Please check your credentials and server URL.'
+			);
+		}
+
+		// Process each input item
 		for (let i = 0; i < items.length; i++) {
 			try {
-				// Step 1: Login to get session cookie (like in your HTTP Request screenshots)
-				const loginOptions: IHttpRequestOptions = {
-					url: `${baseServerUrl}/api/login`,
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'Accept': 'application/json',
-					},
-					body: {
-						username: credentials.username,
-						password: credentials.password,
-					},
-					returnFullResponse: true,
-				};
-
-				const loginResponse = await this.helpers.httpRequest(loginOptions);
-
-				// Extract session cookie from login response
-				let sessionCookie = '';
-				if (loginResponse.headers && loginResponse.headers['set-cookie']) {
-					const cookies = loginResponse.headers['set-cookie'];
-					sessionCookie = Array.isArray(cookies)
-						? cookies.map(cookie => cookie.split(';')[0]).join('; ')
-						: cookies.split(';')[0];
-				}
-
-				if (!sessionCookie) {
-					throw new NodeOperationError(
-						this.getNode(),
-						'Authentication failed - no session cookie received',
-						{ itemIndex: i }
-					);
-				}
-
-				// Step 2: Use the routing from descriptions to make the actual API call
-				// Get the routing configuration for this operation
 				const resource = this.getNodeParameter('resource', i) as string;
 				const operation = this.getNodeParameter('operation', i) as string;
 
-				// Build the request using the routing configuration from descriptions
+				// Build request based on operation (this mirrors the routing configs)
 				let requestOptions: IHttpRequestOptions = {
 					url: serverUrl,
 					method: 'GET',
@@ -157,25 +161,21 @@ export class Unifi implements INodeType {
 						'Content-Type': 'application/json',
 						'Cookie': sessionCookie,
 					},
+					body: {},
 				};
 
-				// Apply routing configuration based on the operation
-				// This would normally be handled by n8n's routing system,
-				// but since we need custom authentication, we'll do it manually
-				const routingData = getRoutingData(resource, operation, this, i);
-				if (routingData) {
+				// Get routing configuration from description files
+				const routingConfig = Unifi.getOperationRouting(resource, operation, i, this);
+				if (routingConfig) {
 					requestOptions = {
 						...requestOptions,
-						...routingData,
-						url: `${serverUrl}${routingData.url}`,
-						headers: {
-							...requestOptions.headers,
-							...routingData.headers,
-						},
+						url: `${serverUrl}${routingConfig.url}`,
+						method: routingConfig.method,
+						body: routingConfig.body || {},
 					};
 				}
 
-				// Step 3: Execute the actual API request with session cookie
+				// Execute the API request
 				const responseData = await this.helpers.httpRequest(requestOptions);
 
 				// Handle response
@@ -186,7 +186,7 @@ export class Unifi implements INodeType {
 				}
 
 			} catch (error) {
-				// Handle authentication errors
+				// Handle API errors
 				if (error.response?.status === 401) {
 					throw new NodeOperationError(
 						this.getNode(),
@@ -216,72 +216,93 @@ export class Unifi implements INodeType {
 		return [returnData];
 	}
 
-}
+	private static getOperationRouting(resource: string, operation: string, itemIndex: number, context: IExecuteFunctions): any {
+		// Find the operation configuration from the description files
+		let operationConfig: any = null;
 
-// Helper function to extract routing information from descriptions
-function getRoutingData(resource: string, operation: string, context: IExecuteFunctions, itemIndex: number): any {
-	// This is a simplified version - in a full implementation, you'd parse the routing
-	// from your description files based on the resource and operation
-
-	// For customer operations example
-	if (resource === 'customer' && operation === 'getMany') {
-		return {
-			method: 'POST',
-			url: '/customers/search',
-			body: {
-				page: context.getNodeParameter('page', itemIndex, 1),
-				pageSize: context.getNodeParameter('pageSize', itemIndex, 10),
-				sortProperty: context.getNodeParameter('sortProperty', itemIndex, undefined),
-				sortAscending: context.getNodeParameter('sortAscending', itemIndex, true),
-				nameContains: context.getNodeParameter('nameContains', itemIndex, undefined),
-				isEnabled: context.getNodeParameter('isEnabled', itemIndex, true),
-				uuidEquals: context.getNodeParameter('uuidEquals', itemIndex, undefined),
-				createdAfter: context.getNodeParameter('createdAfter', itemIndex, undefined),
-				createdBefore: context.getNodeParameter('createdBefore', itemIndex, undefined),
-			},
+		// Map resources to their operation definitions
+		const resourceOperations: { [key: string]: any[] } = {
+			site: siteOperations,
+			deploymentToken: deploymentTokenOperations,
+			group: groupOperations,
+			policy: policyOperations,
+			unblockRequest: unblockRequestOperations,
+			endpoint: endpointOperations,
 		};
+
+		const operations = resourceOperations[resource];
+		if (operations && operations.length > 0) {
+			// Find the operation property definition (should be the first item)
+			const operationProperty = operations[0];
+			operationConfig = operationProperty.options?.find((op: any) => op.value === operation);
+		}
+
+		if (!operationConfig?.routing) {
+			return null;
+		}
+
+		// Process the routing configuration and resolve parameters
+		const routing = operationConfig.routing.request;
+		const processedRouting = {
+			method: routing.method,
+			url: Unifi.processUrl(routing.url, itemIndex, context),
+			body: Unifi.processBody(routing.body, itemIndex, context),
+		};
+
+		return processedRouting;
 	}
 
-	if (resource === 'customer' && operation === 'create') {
-		return {
-			method: 'POST',
-			url: '/customers',
-			body: {
-				name: context.getNodeParameter('name', itemIndex),
-				basePolicyUuid: context.getNodeParameter('basePolicyUuid', itemIndex),
-			},
-		};
+	private static processUrl(url: string, itemIndex: number, context: IExecuteFunctions): string {
+		if (!url) return '';
+
+		// Handle expression syntax like '=/site/{{ $parameter.siteId }}/radius/users'
+		if (url.startsWith('=')) {
+			url = url.substring(1); // Remove the '=' prefix
+		}
+
+		// Replace parameter expressions
+		return url.replace(/\{\{\s*\$parameter\.(\w+)\s*\}\}/g, (match, paramName) => {
+			return context.getNodeParameter(paramName, itemIndex, '') as string;
+		});
 	}
 
-	if (resource === 'site' && operation === 'getMany') {
-		return {
-			method: 'POST',
-			url: '/sites/overview',
-			body: {
-				searchText: context.getNodeParameter('searchText', itemIndex, ''),
-				sortByField: context.getNodeParameter('sortByField', itemIndex, 'description'),
-				sortDirection: context.getNodeParameter('sortDirection', itemIndex, 'ASCENDING'),
-				pageSize: context.getNodeParameter('pageSize', itemIndex, 100),
-				pageNumber: context.getNodeParameter('pageNumber', itemIndex, 0),
-			},
-		};
+	private static processBody(body: any, itemIndex: number, context: IExecuteFunctions): any {
+		if (!body) return body;
+
+		// Handle arrays
+		if (Array.isArray(body)) {
+			return body.map(item => Unifi.processBody(item, itemIndex, context));
+		}
+
+		// Handle objects
+		if (typeof body === 'object') {
+			const processedBody: any = {};
+
+			for (const [key, value] of Object.entries(body)) {
+				if (typeof value === 'string' && value.startsWith('={{')) {
+					// Handle expression syntax like '={{ $parameter.searchText || "" }}'
+					const expression = value.substring(3, value.length - 2).trim(); // Remove '={{' and '}}'
+
+					// Extract parameter name and default value
+					const paramMatch = expression.match(/\$parameter\.(\w+)(?:\s*\|\|\s*(?:"([^"]*)"|(\d+)))?/);
+					if (paramMatch) {
+						const paramName = paramMatch[1];
+						const defaultValue = paramMatch[2] || paramMatch[3] || '';
+						processedBody[key] = context.getNodeParameter(paramName, itemIndex, defaultValue);
+					}
+				} else if (typeof value === 'object') {
+					// Recursively process nested objects/arrays
+					processedBody[key] = Unifi.processBody(value, itemIndex, context);
+				} else {
+					processedBody[key] = value;
+				}
+			}
+
+			return processedBody;
+		}
+
+		// Return primitive values as-is
+		return body;
 	}
 
-	if (resource === 'site' && operation === 'getRadiusUsers') {
-		const siteId = context.getNodeParameter('siteId', itemIndex) as string;
-		return {
-			method: 'GET',
-			url: `/site/${siteId}/radius/users`,
-			body: {},
-		};
-	}
-
-	// Add more routing configurations for other resources/operations as needed
-
-	// Default fallback
-	return {
-		method: 'GET',
-		url: '/api/default',
-		body: {},
-	};
 }

@@ -22,13 +22,13 @@ export const siteOperations: INodeProperties[] = [
 					request: {
 						method: 'POST',
 						url: '/sites/overview',
-					body: {
-						searchText: '={{ $parameter.searchText || "" }}',
-						sortByField: '={{ $parameter.sortByField || "description" }}',
-						sortDirection: '={{ $parameter.sortDirection || "ASCENDING" }}',
-						pageSize: '={{ $parameter.pageSize || 100 }}',
-						pageNumber: '={{ $parameter.pageNumber || 0 }}',
-					},
+						body: {
+							searchText: '={{ $parameter.searchText || "" }}',
+							sortByField: '={{ $parameter.sortByField || "description" }}',
+							sortDirection: '={{ $parameter.sortDirection || "ASCENDING" }}',
+							pageSize: '={{ $parameter.pageSize || 100 }}',
+							pageNumber: '={{ $parameter.pageNumber || 0 }}',
+						},
 					},
 				},
 			},
@@ -40,6 +40,26 @@ export const siteOperations: INodeProperties[] = [
 					request: {
 						method: 'GET',
 						url: '=/site/{{ $parameter.siteId }}/radius/users',
+					},
+				},
+			},
+			{
+				name: 'Create RADIUS User',
+				value: 'createRadiusUser',
+				action: 'Create RADIUS user',
+				routing: {
+					request: {
+						method: 'POST',
+						url: '=/site/{{ $parameter.siteId }}/radius/users/batch_add',
+						body: [
+							{
+								name: '={{ $parameter.name }}',
+								x_password: '={{ $parameter.password }}',
+								vlan: '={{ $parameter.vlan || "" }}',
+								tunnel_type: '={{ $parameter.tunnelType || 3 }}',
+								tunnel_medium_type: '={{ $parameter.tunnelMediumType || 1 }}',
+							},
+						],
 					},
 				},
 			},
@@ -56,11 +76,11 @@ export const siteFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['site'],
-				operation: ['getRadiusUsers'],
+				operation: ['getRadiusUsers', 'createRadiusUser'],
 			},
 		},
 		default: '',
-		description: 'The Site ID to get RADIUS users for',
+		description: 'The Site ID for RADIUS operations',
 		required: true,
 	},
 	{
@@ -146,5 +166,76 @@ export const siteFields: INodeProperties[] = [
 		},
 		default: 0,
 		description: 'Page number to return (0-based)',
+	},
+	// Create RADIUS User fields
+	{
+		displayName: 'User Name',
+		name: 'name',
+		type: 'string',
+		displayOptions: {
+			show: {
+				resource: ['site'],
+				operation: ['createRadiusUser'],
+			},
+		},
+		default: '',
+		description: 'Username for the RADIUS user',
+		required: true,
+	},
+	{
+		displayName: 'Password',
+		name: 'password',
+		type: 'string',
+		displayOptions: {
+			show: {
+				resource: ['site'],
+				operation: ['createRadiusUser'],
+			},
+		},
+		typeOptions: {
+			password: true,
+		},
+		default: '',
+		description: 'Password for the RADIUS user',
+		required: true,
+	},
+	{
+		displayName: 'VLAN',
+		name: 'vlan',
+		type: 'string',
+		displayOptions: {
+			show: {
+				resource: ['site'],
+				operation: ['createRadiusUser'],
+			},
+		},
+		default: '',
+		description: 'VLAN assignment for the user (optional)',
+	},
+	{
+		displayName: 'Tunnel Type',
+		name: 'tunnelType',
+		type: 'number',
+		displayOptions: {
+			show: {
+				resource: ['site'],
+				operation: ['createRadiusUser'],
+			},
+		},
+		default: 3,
+		description: 'Tunnel type for RADIUS user (default: 3)',
+	},
+	{
+		displayName: 'Tunnel Medium Type',
+		name: 'tunnelMediumType',
+		type: 'number',
+		displayOptions: {
+			show: {
+				resource: ['site'],
+				operation: ['createRadiusUser'],
+			},
+		},
+		default: 1,
+		description: 'Tunnel medium type for RADIUS user (default: 1)',
 	},
 ];

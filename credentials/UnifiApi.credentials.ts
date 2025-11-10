@@ -1,6 +1,7 @@
 import {
 	ICredentialType,
 	INodeProperties,
+	ICredentialTestRequest,
 } from 'n8n-workflow';
 
 export class UnifiApi implements ICredentialType {
@@ -8,6 +9,19 @@ export class UnifiApi implements ICredentialType {
 	displayName = 'Unifi API';
 	// icon = 'file:unifi.svg' as Icon;
 	documentationUrl = 'https://developer.unifitech.com/api/docs/index.html';
+
+	test: ICredentialTestRequest = {
+		request: {
+			baseURL: '={{$credentials.serverUrl.replace("/v2/api", "")}}',
+			url: '/api/login',
+			method: 'POST',
+			body: {
+				username: '={{$credentials.username}}',
+				password: '={{$credentials.password}}',
+			},
+		},
+	};
+
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Server URL',
