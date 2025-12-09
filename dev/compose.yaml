@@ -5,9 +5,6 @@ services:
     restart: unless-stopped
     ports:
       - 5678:5678
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./data:/home/node/.n8n

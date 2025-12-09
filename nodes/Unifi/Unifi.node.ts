@@ -9,17 +9,17 @@ import {
 } from 'n8n-workflow';
 
 import { siteOperations, siteFields } from './descriptions/SiteDescription';
-import { deploymentTokenOperations, deploymentTokenFields } from './descriptions/DeploymentTokenDescription';
-import { groupFields, groupOperations } from './descriptions/GroupDescription';
-import { policyOperations, policyFields } from './descriptions/PolicyDescription';
-import { unblockRequestFields, unblockRequestOperations } from './descriptions/UnblockRequestDescription';
-import { endpointFields, endpointOperations } from './descriptions/EndpointDescription';
+import { deviceOperations, deviceFields } from './descriptions/DeviceDescription';
+import { clientFields, clientOperations } from './descriptions/ClientDescription';
+import { networkOperations, networkFields } from './descriptions/NetworkDescription';
+import { internetAccessControlOperations, internetAccessControlFields } from './descriptions/InternetAccessControlDescription';
+import { sitesAndMonitoringFields, sitesAndMonitoringOperations } from './descriptions/SitesAndMonitoringDescription';
 
 export class Unifi implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Unifi',
 		name: 'unifi',
-		// icon: 'file:Unifi.svg',
+		icon: 'file:Unifi.svg',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -51,45 +51,45 @@ export class Unifi implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Deployment Token',
-						value: 'deploymentToken',
+						name: 'Client',
+						value: 'client',
 					},
 					{
-						name: 'Endpoint',
-						value: 'endpoint',
+						name: 'Device',
+						value: 'device',
 					},
 					{
-						name: 'Group',
-						value: 'group',
+						name: 'Internet Access Control',
+						value: 'internetAccessControl',
 					},
 					{
-						name: 'Policy',
-						value: 'policy',
+						name: 'Network',
+						value: 'network',
 					},
 					{
 						name: 'Site',
 						value: 'site',
 					},
 					{
-						name: 'Unblock Request',
-						value: 'unblockRequest',
+						name: 'Sites and Monitoring',
+						value: 'sitesAndMonitoring',
 					},
 				],
 				default: 'site',
 			},
-			// Operation
-			...siteOperations,
-			...siteFields,
-			...deploymentTokenOperations,
-			...deploymentTokenFields,
-			...groupOperations,
-			...groupFields,
-			...policyOperations,
-			...policyFields,
-			...unblockRequestOperations,
-			...unblockRequestFields,
-			...endpointOperations,
-			...endpointFields,
+		// Operation
+		...siteOperations,
+		...siteFields,
+		...deviceOperations,
+		...deviceFields,
+		...clientOperations,
+		...clientFields,
+		...networkOperations,
+		...networkFields,
+		...internetAccessControlOperations,
+		...internetAccessControlFields,
+		...sitesAndMonitoringOperations,
+		...sitesAndMonitoringFields,
 		],
 	};
 
@@ -167,23 +167,72 @@ export class Unifi implements INodeType {
 				// Get routing configuration from description files
 				const routingConfig = Unifi.getOperationRouting(resource, operation, i, this);
 				if (routingConfig) {
+					// Check if URL starts with /api/ (Controller API) vs v2 API
+					let fullUrl = `${serverUrl}${routingConfig.url}`;
+					if (routingConfig.url.startsWith('/api/')) {
+						// Use base server URL (without /v2/api) for Controller API endpoints
+						fullUrl = `${baseServerUrl}${routingConfig.url}`;
+					}
+
 					requestOptions = {
 						...requestOptions,
-						url: `${serverUrl}${routingConfig.url}`,
+						url: fullUrl,
 						method: routingConfig.method,
 						body: routingConfig.body || {},
 					};
 				}
 
-				// Execute the API request
-				const responseData = await this.helpers.httpRequest(requestOptions);
+			// Execute the API request
+			const responseData = await this.helpers.httpRequest(requestOptions);
 
-				// Handle response
-				if (Array.isArray(responseData)) {
-					returnData.push(...responseData.map(item => ({ json: item })));
-				} else {
-					returnData.push({ json: responseData });
+			// Handle response based on resource and operation
+			let processedData = responseData;
+
+			// For device operations with splitIntoItems enabled, extract data array
+			if (resource === 'device' && ['listAllDevices', 'getDeviceInfo', 'getDeviceStats'].includes(operation)) {
+				const splitIntoItems = this.getNodeParameter('splitIntoItems', i, true) as boolean;
+				if (splitIntoItems && responseData.data && Array.isArray(responseData.data)) {
+					// Split each device into its own item
+					returnData.push(...responseData.data.map((device: any) => ({ json: device })));
+					continue; // Skip the default handling below
 				}
+			}
+
+			// For client operations with splitIntoItems enabled, extract data array
+			if (resource === 'client' && ['listActiveClients', 'listAllClients', 'getClientDetails'].includes(operation)) {
+				const splitIntoItems = this.getNodeParameter('splitIntoItems', i, true) as boolean;
+				if (splitIntoItems && responseData.data && Array.isArray(responseData.data)) {
+					// Split each client into its own item
+					returnData.push(...responseData.data.map((client: any) => ({ json: client })));
+					continue; // Skip the default handling below
+				}
+			}
+
+			{
+				if (resource === 'network' && ['listNetworks'].includes(operation)) {
+					const splitIntoItems = this.getNodeParameter('splitIntoItems', i, true) as boolean;
+					if (splitIntoItems && responseData.data && Array.isArray(responseData.data)) {
+						// Split each network into its own item
+						returnData.push(...responseData.data.map((network: any) => ({ json: network })));
+						continue; // Skip the default handling below
+					}
+				}
+			}
+			// For site operations with splitIntoItems enabled, extract data array
+			if (resource === 'site' && ['getMany', 'getSiteHealth'].includes(operation)) {
+				const splitIntoItems = this.getNodeParameter('splitIntoItems', i, true) as boolean;
+				if (splitIntoItems && responseData.data && Array.isArray(responseData.data)) {
+					// Split each site into its own item
+					returnData.push(...responseData.data.map((site: any) => ({ json: site })));
+					continue; // Skip the default handling below
+				}
+			}
+			// Default handling for other operations or when splitIntoItems is false
+			if (Array.isArray(processedData)) {
+				returnData.push(...processedData.map(item => ({ json: item })));
+			} else {
+				returnData.push({ json: processedData });
+			}
 
 			} catch (error) {
 				// Handle API errors
@@ -220,15 +269,15 @@ export class Unifi implements INodeType {
 		// Find the operation configuration from the description files
 		let operationConfig: any = null;
 
-		// Map resources to their operation definitions
-		const resourceOperations: { [key: string]: any[] } = {
-			site: siteOperations,
-			deploymentToken: deploymentTokenOperations,
-			group: groupOperations,
-			policy: policyOperations,
-			unblockRequest: unblockRequestOperations,
-			endpoint: endpointOperations,
-		};
+	// Map resources to their operation definitions
+	const resourceOperations: { [key: string]: any[] } = {
+		site: siteOperations,
+		device: deviceOperations,
+		client: clientOperations,
+		network: networkOperations,
+		internetAccessControl: internetAccessControlOperations,
+		sitesAndMonitoring: sitesAndMonitoringOperations,
+	};
 
 		const operations = resourceOperations[resource];
 		if (operations && operations.length > 0) {

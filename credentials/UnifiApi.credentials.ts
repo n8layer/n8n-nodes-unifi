@@ -2,12 +2,13 @@ import {
 	ICredentialType,
 	INodeProperties,
 	ICredentialTestRequest,
+	Icon,
 } from 'n8n-workflow';
 
 export class UnifiApi implements ICredentialType {
 	name = 'unifiApi';
 	displayName = 'Unifi API';
-	// icon = 'file:unifi.svg' as Icon;
+	icon = 'file:Unifi.svg' as Icon;
 	documentationUrl = 'https://developer.unifitech.com/api/docs/index.html';
 
 	test: ICredentialTestRequest = {
@@ -27,8 +28,8 @@ export class UnifiApi implements ICredentialType {
 			displayName: 'Server URL',
 			name: 'serverUrl',
 			type: 'string',
-			default: 'https://unifi.elasticit.com:8443/v2/api',
-			placeholder: 'https://unifi.elasticit.com:8443/v2/api',
+			default: 'https://unifi.yourcompany.com:8888/v2/api',
+			placeholder: 'https://unifi.yourcompany.com:8888/v2/api',
 			description: 'The base URL of your UniFi server',
 			required: true,
 		},
